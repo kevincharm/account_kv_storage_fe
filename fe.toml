@@ -1,0 +1,5 @@
+name = "smt-airdrop-fe"
+version = "1.0"
+
+[dependencies]
+smt_fe = { path = "./vendor/smt_fe", version = "1.0" }

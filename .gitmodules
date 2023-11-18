@@ -1,0 +1,3 @@
+[submodule "vendor/smt_fe"]
+	path = vendor/smt_fe
+	url = git@github.com:kevincharm/smt_fe.git

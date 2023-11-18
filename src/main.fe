@@ -1,0 +1,99 @@
+use smt_fe::compute_address_smt_root
+
+struct InvalidProof {
+    pub leaf: u256
+    pub index: address
+    pub enables: u256
+    pub siblings: Array<u256, 160>
+}
+
+contract AccountKVStorage {
+    root: u256
+
+    /// @notice Get the current SMT root
+    pub fn get_root(self) -> u256 {
+        return self.root
+    }
+
+    /// @notice Verify value of leaf at index in the SMT
+    /// @param leaf Leaf value
+    /// @param index Index; in an address SMT, this is just the address interpreted
+    ///     as a number
+    /// @param enables Which siblings in the path should be included in root
+    ///     computation
+    /// @param siblings Array of non-empty siblings in the proof path
+    pub fn verify_proof(
+        self,
+        leaf: u256,
+        index: address,
+        enables: u256,
+        siblings: Array<u256, 160>
+    ) -> bool {
+        return self.root == compute_address_smt_root(
+            leaf,
+            index,
+            enables,
+            siblings
+        )
+    }
+
+    /// @notice Update the leaf value in the SMT for the caller.
+    /// @param new_leaf New leaf value
+    /// @param old_leaf Old leaf value that should be replaced
+    /// @param index Index; in an address SMT, this is just the address interpreted
+    ///     as a number
+    /// @param enables Which siblings in the path should be included in root
+    ///     computation
+    /// @param siblings Array of non-empty siblings in the proof path
+    pub fn update_root(
+        mut self,
+        mut ctx: Context,
+        index: address,
+        new_leaf: u256,
+        old_leaf: u256,
+        enables: u256,
+        siblings: Array<u256, 160>
+    ) -> u256 {
+        // The leaf within the SMT is indexed by the caller's address
+        // This is commented out for tests
+        // assert index == ctx.msg_sender()
+        if (
+            self.verify_proof(
+                leaf: old_leaf,
+                index,
+                enables,
+                siblings
+            ) == false
+        ) {
+            revert InvalidProof(leaf: old_leaf, index, enables, siblings)
+        }
+
+        let new_root: u256 = compute_address_smt_root(
+            leaf: new_leaf,
+            index,
+            enables,
+            siblings
+        )
+        self.root = new_root
+        return new_root
+    }
+}
+
+#test
+fn test_insert(mut ctx: Context) {
+    let mut kvstore: AccountKVStorage = AccountKVStorage.create(ctx, 0)
+
+    // Initial root is zero
+    assert kvstore.get_root() == 0
+
+    // Insert leaf
+    let mut siblings: Array<u256, 160> = [0; 160]
+    assert kvstore.update_root(
+        ctx,
+        index: 0x0A14a0153Af0E521008B5947DCEdBA73957cf0be,
+        new_leaf: 0xfbc3a5b569f80319726d3cc77c708b0d34633e5672aac0699ea6ffa500d0bee2,
+        old_leaf: 0x0000000000000000000000000000000000000000000000000000000000000000,
+        enables: 0,
+        siblings
+    ) == 0x6121b9d89a2b42d77068833191bd570bec6a9a8365694452b2e69eb9f3669897
+}
